@@ -5,6 +5,7 @@
 import os
 import pickle
 import numpy as np
+import matplotlib.pyplot as plt
 
 from Environment02 import Environment02
 
@@ -271,6 +272,28 @@ def mainTrain(gameName, Nact, roundsG, algoName, lr, Nagent, simStart, Nsim, tSt
 
                 print('sim %d time %d' % (sim, t), CountPolicySwTypeT[t-1], CountPolicyPDTypeT[t-1], CountActualOutcomeT[t-1])
         print('sim %d completed'%(sim))
+    
+
+    percentages = np.zeros((T, 4))
+
+    for t in range(T):
+        total_outcomes = np.sum(CountOutcomeT[t])
+        if total_outcomes > 0:
+            percentages[t] = CountOutcomeT[t] / total_outcomes * 100
+
+    
+    outcome_labels = ['(C, C)', '(C, D)', '(D, C)', '(D, D)']
+    plt.figure(figsize=(10, 6))
+
+    for i in range(4):
+        plt.plot(percentages[:, i], label=outcome_labels[i])
+
+    plt.xlabel('Time Step')
+    plt.ylabel('Percentage of Outcome')
+    plt.title("Percentage of Prisoner's Dilemma Outcomes Over Time")
+    plt.legend(loc='best')
+    plt.grid(True)
+    plt.show()
 
 def softmax(x):
     z = x - np.max(x)
@@ -282,9 +305,9 @@ def softmax(x):
 if __name__ == '__main__':
     simStart = 1
     Nsim = 20
-
+ 
     tStart = 0
-    T = 100000
+    T = 1000
 
     lr = 0.05
 
