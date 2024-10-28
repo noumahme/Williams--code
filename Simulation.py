@@ -60,7 +60,7 @@ strategy_colors = {
 }
 
 # returns the probabilities of selection actions given the current state 
-def boltzmann_exploration(q_table, state: State, temperature: float, constant):
+def boltzmann_exploration(q_table, state: State, temperature: float):
     exp = np.exp((q_table[state.value, :] - max(q_table[state.value, :])) / temperature)
     return exp / np.sum(exp)
 
@@ -103,7 +103,7 @@ class Agent:
         
     # returns an action given the current state
     def get_action_ps(self, state: State, debug = False) -> ActionPS:
-        temp = boltzmann_exploration(self.qtable_ps, state, self.t, 0.8)
+        temp = boltzmann_exploration(self.qtable_ps, state, self.t)
         action = np.random.choice([ActionPS.LEAVE, ActionPS.STAY], p=temp)
         if debug:
             print("Action Probabilities: " + str(temp))
@@ -117,7 +117,7 @@ class Agent:
         #     return ActionPS.LEAVE
 
     def get_action_pd(self, state: State, debug = False) -> ActionPD:
-        temp = boltzmann_exploration(self.qtable_pd, state, self.t, 0.8)
+        temp = boltzmann_exploration(self.qtable_pd, state, self.t)
         action = np.random.choice([ActionPD.DEFECT, ActionPD.COOPERATE], p=temp)
         if debug:
             print("Action Probabilities: " + str(temp))
@@ -290,10 +290,18 @@ def sdoo(population: int, rounds: int, episodes: int, learning_rate: float, temp
     probabilities_ps_cooperated = []
     probabilities_pd_defected = []
     probabilities_pd_cooperated = []
+    max_probabilities_ps_defected = []
+    max_probabilities_ps_cooperated = []
+    max_probabilities_pd_defected = []
+    max_probabilities_pd_cooperated = []
     new_probabilities_ps_defected = []
     new_probabilities_pd_defected = []
     new_probabilities_ps_cooperated = []
     new_probabilities_pd_cooperated = []
+    new_max_probabilities_ps_defected = []
+    new_max_probabilities_pd_defected = []
+    new_max_probabilities_ps_cooperated = []
+    new_max_probabilities_pd_cooperated = []
     strategies_ps = []
     strategies_pd = []
     new_strategies_ps = []
@@ -332,17 +340,19 @@ def sdoo(population: int, rounds: int, episodes: int, learning_rate: float, temp
                 a_i = agents[i].get_action_ps(s_i)
                 a_j = agents[j].get_action_ps(s_j)
 
-                tempi_ps = boltzmann_exploration(agents[i].qtable_ps, s_i, agents[i].t, 0.8)
-                tempj_ps = boltzmann_exploration(agents[j].qtable_ps, s_j, agents[j].t, 0.8)
+                prob_ps_defected_i = boltzmann_exploration(agents[i].qtable_ps, State.PARTNER_DEFECTED, agents[i].t)
+                prob_ps_cooperated_i = boltzmann_exploration(agents[i].qtable_ps, State.PARTNER_COOPERATED, agents[i].t)
+                prob_ps_defected_j = boltzmann_exploration(agents[j].qtable_ps, State.PARTNER_DEFECTED, agents[j].t)
+                prob_ps_cooperated_j = boltzmann_exploration(agents[j].qtable_ps, State.PARTNER_COOPERATED, agents[j].t)
 
-                if s_i == State.PARTNER_DEFECTED:
-                    probabilities_ps_defected.append(tempi_ps[0])
-                else:
-                    probabilities_ps_cooperated.append(tempi_ps[0])
-                if s_j == State.PARTNER_DEFECTED:
-                    probabilities_ps_defected.append(tempj_ps[0])
-                else:
-                    probabilities_ps_cooperated.append(tempj_ps[0])
+                probabilities_ps_defected.append(prob_ps_defected_i[0])
+                probabilities_ps_defected.append(prob_ps_defected_j[0])
+                probabilities_ps_cooperated.append(prob_ps_cooperated_i[0])
+                probabilities_ps_cooperated.append(prob_ps_cooperated_j[0])
+                max_probabilities_ps_defected.append(max(prob_ps_defected_i))
+                max_probabilities_ps_defected.append(max(prob_ps_defected_j))
+                max_probabilities_ps_cooperated.append(max(prob_ps_cooperated_i))
+                max_probabilities_ps_cooperated.append(max(prob_ps_cooperated_j))
 
                 if a_i == ActionPS.LEAVE or a_j == ActionPS.LEAVE:
                     if a_i == ActionPS.LEAVE:
@@ -387,10 +397,10 @@ def sdoo(population: int, rounds: int, episodes: int, learning_rate: float, temp
                 i_pool.remove(i)
                 other_pool = switch_leave_pool if i_pool == switch_stay_pool else switch_stay_pool
                 rand_choice = np.random.rand()
-                if rand_choice < prefer_same_pool and i_pool:
+                if (rand_choice < prefer_same_pool) and i_pool:
                     j_pool = i_pool
                     j = j_pool.pop(np.random.randint(len(j_pool)))
-                elif rand_choice < prefer_same_pool + prefer_different_pool and other_pool:
+                elif (rand_choice < prefer_same_pool + prefer_different_pool) and other_pool:
                     j_pool = other_pool
                     j = j_pool.pop(np.random.randint(len(j_pool)))
                 else:
@@ -436,17 +446,19 @@ def sdoo(population: int, rounds: int, episodes: int, learning_rate: float, temp
                 a_i = agents[i].get_action_pd(s_i)
                 a_j = agents[j].get_action_pd(s_j)
 
-                tempi_pd = boltzmann_exploration(agents[i].qtable_pd, s_i, agents[i].t, 0.8)
-                tempj_pd = boltzmann_exploration(agents[j].qtable_pd, s_j, agents[j].t, 0.8)
-
-                if s_i == State.PARTNER_DEFECTED:
-                    probabilities_pd_defected.append(tempi_pd[0])
-                else:
-                    probabilities_pd_cooperated.append(tempi_pd[0])
-                if s_j == State.PARTNER_DEFECTED:
-                    probabilities_pd_defected.append(tempj_pd[0])
-                else:
-                    probabilities_pd_cooperated.append(tempj_pd[0])
+                prob_pd_defected_i = boltzmann_exploration(agents[i].qtable_pd, State.PARTNER_DEFECTED, agents[i].t)
+                prob_pd_cooperated_i = boltzmann_exploration(agents[i].qtable_pd, State.PARTNER_COOPERATED, agents[i].t)
+                prob_pd_defected_j = boltzmann_exploration(agents[j].qtable_pd, State.PARTNER_DEFECTED, agents[j].t)
+                prob_pd_cooperated_j = boltzmann_exploration(agents[j].qtable_pd, State.PARTNER_COOPERATED, agents[j].t)
+                
+                probabilities_pd_defected.append(prob_pd_defected_i[0])
+                probabilities_pd_defected.append(prob_pd_defected_j[0])
+                probabilities_pd_cooperated.append(prob_pd_cooperated_i[0])
+                probabilities_pd_cooperated.append(prob_pd_cooperated_j[0])
+                max_probabilities_pd_defected.append(max(prob_pd_defected_i))
+                max_probabilities_pd_defected.append(max(prob_pd_defected_j))
+                max_probabilities_pd_cooperated.append(max(prob_pd_cooperated_i))
+                max_probabilities_pd_cooperated.append(max(prob_pd_cooperated_j))
 
                 r_i, r_j = prisoners_dilemma(a_i, a_j)
                 total_reward[episode] += r_i + r_j
@@ -508,20 +520,35 @@ def sdoo(population: int, rounds: int, episodes: int, learning_rate: float, temp
                 recorded_outcome_changes[(outcome, next_outcome)][episode] += 1
                 # else:
                 #     recorded_outcome_changes[((outcome[1], outcome[0]), (next_outcome[1], next_outcome[0]))][episode] += 1
+
         mean_probabilities_ps_defected = np.mean(probabilities_ps_defected)
         mean_probabilities_ps_cooperated = np.mean(probabilities_ps_cooperated)
         mean_probabilities_pd_defected = np.mean(probabilities_pd_defected)
         mean_probabilities_pd_cooperated = np.mean(probabilities_pd_cooperated)
+        mean_max_probabilities_ps_defected = np.mean(max_probabilities_ps_defected)
+        mean_max_probabilities_ps_cooperated = np.mean(max_probabilities_ps_cooperated)
+        mean_max_probabilities_pd_defected = np.mean(max_probabilities_pd_defected)
+        mean_max_probabilities_pd_cooperated = np.mean(max_probabilities_pd_cooperated)
+        
         new_probabilities_ps_defected.append(mean_probabilities_ps_defected)
         new_probabilities_ps_cooperated.append(mean_probabilities_ps_cooperated)
         new_probabilities_pd_defected.append(mean_probabilities_pd_defected)
         new_probabilities_pd_cooperated.append(mean_probabilities_pd_cooperated)
+        new_max_probabilities_ps_defected.append(mean_max_probabilities_ps_defected)
+        new_max_probabilities_ps_cooperated.append(mean_max_probabilities_ps_cooperated)
+        new_max_probabilities_pd_defected.append(mean_max_probabilities_pd_defected)
+        new_max_probabilities_pd_cooperated.append(mean_max_probabilities_pd_cooperated)
         new_strategies_ps.append(strategies_ps)
         new_strategies_pd.append(strategies_pd)
+        
         probabilities_ps_defected = []
         probabilities_ps_cooperated = []
         probabilities_pd_defected = []
-        probabilities_pd_cooperated = []
+        probabilities_pd_cooperated = []        
+        max_probabilities_ps_defected = []
+        max_probabilities_ps_cooperated = []
+        max_probabilities_pd_defected = []
+        max_probabilities_pd_cooperated = []
         strategies_ps = []
         strategies_pd = []
 
@@ -588,6 +615,10 @@ def sdoo(population: int, rounds: int, episodes: int, learning_rate: float, temp
         "new_probabilities_ps_cooperated": new_probabilities_ps_cooperated,
         "new_probabilities_pd_defected": new_probabilities_pd_defected,
         "new_probabilities_pd_cooperated": new_probabilities_pd_cooperated,
+        "new_max_probabilities_ps_defected": new_max_probabilities_ps_defected,
+        "new_max_probabilities_ps_cooperated": new_max_probabilities_ps_cooperated,
+        "new_max_probabilities_pd_defected": new_max_probabilities_pd_defected,
+        "new_max_probabilities_pd_cooperated": new_max_probabilities_pd_cooperated,
         "population": population,
         "rounds": rounds,
         "num_strategies_ps": num_strategies_ps,
@@ -1010,7 +1041,7 @@ def main():
         "do_plot": False}         # Plot Results
 
     tests = {
-        "temperature": [150, 95, 85, 75, 65, 45, 25, 5],
+        "disposition": [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0],
     }
 
     reps = 5
@@ -1103,4 +1134,4 @@ def main2():
         all_results_average[param_name] = param_results_avg
 
 if __name__ == "__main__":
-    main2()
+    main()
