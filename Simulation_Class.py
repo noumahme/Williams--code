@@ -1,6 +1,10 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import pickle
+import os
+import time
+import datetime
+
 
 from enum import Enum
 
@@ -816,6 +820,49 @@ def average_results(results):
                 raise ve
     return averaged_results
 
+def run_simulations(base_params, episodes, reps, tests={}, save=True):
+    if not tests:
+        tests = {"learning_mode": ["q_learning"]}
+
+    additional_params = {
+        "episodes": episodes,
+        "reps": reps
+    }
+
+    params = base_params.copy()
+    all_results_reps = {}
+    all_results_average = {}
+
+    # timestamp for filename
+    ts = time.time()
+    stts = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d_%H-%M-%S')
+
+    for param_name, param_values in tests.items():
+        param_results_reps = {}
+        param_results_avg = {}
+        for param_value in param_values:
+            print(f"Testing {param_name} = {param_value}")
+            params = base_params.copy()
+            params[param_name] = param_value
+            output = []
+            for _ in range(reps):
+                base = Simulation(**params)
+                base.initialize()
+                output.append(base.run_episodes(episodes))
+            param_results_reps[param_value] = {"params": params.copy() | additional_params, "output": output}
+            output_avg = average_results(output)
+            param_results_avg[param_value] = {"params": params.copy() | additional_params, "output": output_avg}
+        if save:
+            if not os.path.exists('reps'):
+                os.makedirs('reps')
+            with open(f'reps/reps_{stts}.pkl', 'wb') as f:
+                pickle.dump(param_results_reps, f)
+            with open(f'avg_{stts}.pkl', 'wb') as f:
+                pickle.dump(param_results_avg, f)
+        all_results_reps[param_name] = param_results_reps
+        all_results_average[param_name] = param_results_avg
+    return all_results_reps, all_results_average
+
 def main():
 
     ##############################################################################################################
@@ -846,44 +893,11 @@ def main():
     tests = { 
     }
 
-    ##############################################################################################################
-    # Run Simulation
-    ##############################################################################################################
+    # tests = {
+    #     "delta_t": [0.97, 0.99, 0.995],
+    # }
 
-    if not tests:
-        tests = {"learning_mode": ["q_learning"]}
-
-    params = base_params.copy()
-    all_results_reps = {}
-    all_results_average = {}
-
-    # timestamp for filename
-    import time
-    import datetime
-    ts = time.time()
-    stts = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d_%H-%M-%S')
-
-    for param_name, param_values in tests.items():
-        param_results_reps = {}
-        param_results_avg = {}
-        for param_value in param_values:
-            print(f"Testing {param_name} = {param_value}")
-            params = base_params.copy()
-            params[param_name] = param_value
-            output = []
-            for _ in range(reps):
-                base = Simulation(**params)
-                base.initialize()
-                output.append(base.run_episodes(episodes))
-            param_results_reps[param_value] = {"params": params.copy() | {"reps": reps}, "output": output}
-            output_avg = average_results(output)
-            param_results_avg[param_value] = {"params": params.copy() | {"reps": reps}, "output": output_avg}
-        with open(f'reps/reps_{stts}.pkl', 'wb') as f:
-            pickle.dump(param_results_reps, f)
-        with open(f'avg_{stts}.pkl', 'wb') as f:
-            pickle.dump(param_results_avg, f)
-        all_results_reps[param_name] = param_results_reps
-        all_results_average[param_name] = param_results_avg
+    all_results_reps, all_results_average = run_simulations(base_params, episodes, reps, tests, save=True)
 
 if __name__ == "__main__":
     main()
